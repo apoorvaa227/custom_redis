@@ -71,6 +71,7 @@ const server = net.createServer((socket) => {
                 console.log(`key: ${parts[1]} Expiry Time : ${expiration[parts[1]]} , current time: ${ Date.now()}`);
             }
         }
+
         else if( command === 'GET')
         {
             if(  expiration[parts[1]] && expiration[parts[1]] < Date.now())
@@ -91,6 +92,79 @@ const server = net.createServer((socket) => {
                 socket.write(customSerializes('null'));
             }
         
+        }
+        
+        else if( command === 'DEL')
+        {
+            let delcount = 0;
+            for( let i = 1; i < parts.length; i++)
+            {
+                if( store[parts[i]])
+                {
+                    delete store[parts[i]];
+                    delete expiration[parts[i]];
+                    socket.write(customSerializes('OK'));
+                }
+                else
+                {
+                    socket.write(customSerializes('null'));
+                }
+                delcount++;
+            }
+            socket.write(customSerializes(delcount));
+            
+        }
+
+        else if (command === 'EXISTS') 
+        {
+            if (store[parts[1]]) {
+                socket.write(customSerializes(1)); 
+            } else {
+                socket.write(customSerializes(0)); 
+            }
+        }
+        else if( command === 'INCR')
+        {
+            if( store[parts[1]] && !NaN(store[parts[1]]))
+            {
+                store[parts[1]] = parseInt(store[parts[1]], 10) + 1;
+                socket.write(customSerializes(store[parts[1]]));
+            }
+        }
+        else if( command === 'DECR')
+        {
+                if( store[parts[1]] && !NaN(store[parts[1]]))
+                {
+                    store[parts[1]] = parseInt(store[parts[1]], 10) - 1;
+                    socket.write(customSerializes(store[parts[1]]));
+                }
+        }
+        else if( command === 'LPUSH')
+        {
+            if( !ArrayisArray(store[parts[1]]))
+            {
+                store[parts[1]] = [];
+            }
+             store[parts[1]].unshift(...parts.slice(2));
+             socket.write(customSerializes(store[parts[1]].length));
+        }
+        else if( command === 'RPUSH')
+        {
+            if( !ArrayisArray(store[parts[1]]))
+            {
+                store[parts[1]] = [];
+            }
+            store[parts[1]].push(...parts.slice(2));
+            socket.write(customSerializes(store[parts[1]].length));
+        }
+        else if( command === 'LPOP')
+        {
+            if( !ArrayisArray(store[parts[1]]))
+            {
+                store[parts[1]] = [];
+            }
+            let value = store[parts[1]].shift();
+            socket.write(customSerializes(value));
         }
         else 
         {
