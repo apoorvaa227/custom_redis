@@ -1,5 +1,6 @@
 const net = require('net');
 // const { serialize } = require('v8');
+const fs = require('fs');
 
 function customSerializes(data) 
 {
@@ -33,12 +34,42 @@ function customSerializes(data)
 
 let store = {};
 let expiration = {};
+
+
+function loadfiletoMemory() {
+    if (fs.existsSync('db.json')) {
+        try {
+            const data = fs.readFileSync('db.json', 'utf8');
+            const parsedData = JSON.parse(data);
+            store = parsedData.store || {};
+            expiration = parsedData.expiration || {};
+            console.log('Database loaded from disk.');
+        } catch (error) {
+            console.error('Error loading database:', error.message);
+        }
+    } else {
+        console.log('No data file found. Starting with empty store and expiration');
+    }
+}
+
+
+function saveToFile()
+{
+  const data = JSON.stringify({ store , expiration });
+  fs.writeFile.Sync('db.json', data , 'utf8');
+  console.log('Data saved to file');
+}
+loadfiletoMemory();
 const server = net.createServer((socket) => {    
     console.log('Client connected');
     socket.on('data', (data) => {
         const message = data.toString().trim();
         console.log('Data received from client: ' + message);
         const parts = message.split(' ');
+        if (parts.length < 2) {
+            socket.write(customSerializes('ERROR: Missing arguments'));
+            return;
+        }        
         let command = parts[0].toUpperCase();
         // if( data === 'PING')
         // {
@@ -125,7 +156,7 @@ const server = net.createServer((socket) => {
         }
         else if( command === 'INCR')
         {
-            if( store[parts[1]] && !NaN(store[parts[1]]))
+            if( store[parts[1]] && !isNaN(store[parts[1]]))
             {
                 store[parts[1]] = parseInt(store[parts[1]], 10) + 1;
                 socket.write(customSerializes(store[parts[1]]));
@@ -133,7 +164,7 @@ const server = net.createServer((socket) => {
         }
         else if( command === 'DECR')
         {
-                if( store[parts[1]] && !NaN(store[parts[1]]))
+                if( store[parts[1]] && !isNaN(store[parts[1]]))
                 {
                     store[parts[1]] = parseInt(store[parts[1]], 10) - 1;
                     socket.write(customSerializes(store[parts[1]]));
@@ -141,7 +172,7 @@ const server = net.createServer((socket) => {
         }
         else if( command === 'LPUSH')
         {
-            if( !ArrayisArray(store[parts[1]]))
+            if( !Array.isArray(store[parts[1]]))
             {
                 store[parts[1]] = [];
             }
@@ -150,7 +181,7 @@ const server = net.createServer((socket) => {
         }
         else if( command === 'RPUSH')
         {
-            if( !ArrayisArray(store[parts[1]]))
+            if( !Array.isArray(store[parts[1]]))
             {
                 store[parts[1]] = [];
             }
@@ -159,12 +190,19 @@ const server = net.createServer((socket) => {
         }
         else if( command === 'LPOP')
         {
-            if( !ArrayisArray(store[parts[1]]))
-            {
-                store[parts[1]] = [];
+            if (!Array.isArray(store[parts[1]]) || store[parts[1]].length === 0) {
+                socket.write(customSerializes(null));
+            } else {
+                let value = store[parts[1]].shift();
+                socket.write(customSerializes(value));
             }
-            let value = store[parts[1]].shift();
-            socket.write(customSerializes(value));
+            
+        }
+        else if( command === 'SAVE')
+        {
+            saveToFile();
+            socket.write(customSerializes('SAVED'));
+
         }
         else 
         {
